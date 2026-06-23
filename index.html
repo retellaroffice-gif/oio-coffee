@@ -112,6 +112,9 @@
     background:var(--espresso); border:1px solid var(--line); border-radius:13px; outline:none;}
   input.f::placeholder{color:#7d6855;}
   input.f:focus{border-color:var(--caramel);}
+  .pdpa{font-size:12.5px; color:var(--latte); background:var(--espresso); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-top:16px; line-height:1.55;}
+  .pdpa b{display:block; color:var(--foam); font-weight:600; margin-bottom:4px;}
+  .pdpa a{color:var(--caramel);}
   .check{display:flex; gap:10px; align-items:flex-start; margin-top:16px; font-size:13px; color:var(--latte); line-height:1.5;}
   .check input{margin-top:3px; accent-color:var(--caramel); width:16px; height:16px; flex:none;}
   .btn{width:100%; padding:15px; margin-top:20px; font-family:var(--body); font-size:16px; font-weight:600;
@@ -162,8 +165,13 @@
       <input class="f" id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="08X-XXX-XXXX" />
       <label class="f" for="bday">วันเกิด (ไม่บังคับ — ไว้รับสิทธิ์วันเกิด)</label>
       <input class="f" id="bday" type="date" />
+      <div class="pdpa">
+        <b>การคุ้มครองข้อมูลส่วนบุคคล (PDPA)</b>
+        ร้านเก็บชื่อ รูปโปรไฟล์ LINE เบอร์โทร และวันเกิด เพื่อใช้ในระบบสมาชิก สะสมแต้ม และแจ้งโปรโมชั่น
+        <a href="privacy.html" target="_blank" rel="noopener">อ่านนโยบายความเป็นส่วนตัวฉบับเต็ม</a>
+      </div>
       <label class="check"><input type="checkbox" id="consent" />
-        <span>ยอมรับเงื่อนไขการเป็นสมาชิกและนโยบายความเป็นส่วนตัวของร้าน</span></label>
+        <span>ฉันยินยอมให้ร้านเก็บและใช้ข้อมูลส่วนบุคคลตามนโยบายความเป็นส่วนตัว (PDPA)</span></label>
       <button class="btn" id="doRegister" disabled>สมัครสมาชิก</button>
     </div>
   </section>
