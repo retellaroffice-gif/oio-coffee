@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>พนักงาน · เพิ่มคะแนน</title>
+<style>
+  :root { --green:#06C755; --green-d:#04A847; --ink:#1c1c1c; --muted:#6b7280; --line:#e8e8e8; --bg:#f6f7f8; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Helvetica Neue","Sarabun",sans-serif; color:var(--ink); background:var(--bg); }
+  .wrap { max-width:440px; margin:0 auto; padding:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .muted { color:var(--muted); font-size:13px; margin-top:0; }
+  label { display:block; font-size:13px; font-weight:600; color:var(--muted); margin:14px 0 6px; }
+  input { width:100%; padding:13px 14px; font-size:16px; border:1px solid var(--line); border-radius:12px; outline:none; }
+  input:focus { border-color:var(--green); }
+  button { width:100%; margin-top:18px; padding:13px; font-size:16px; font-weight:600; color:#fff; background:var(--green); border:none; border-radius:12px; cursor:pointer; }
+  button:active { background:var(--green-d); }
+  .result { margin-top:16px; padding:14px; border-radius:12px; background:#eafaf0; color:#04692e; font-size:14px; display:none; white-space:pre-line; line-height:1.5; }
+  .scan { width:100%; margin-top:10px; padding:11px; font-size:14px; font-weight:600; color:var(--green-d); background:#eafaf0; border:1px solid #bfe6cd; border-radius:12px; cursor:pointer; }
+  .scan:active { background:#dcf3e4; }
+  .reader { margin-top:12px; border-radius:14px; overflow:hidden; }
+  .reader video { width:100% !important; display:block; }
+  .result.err { background:#fdecea; color:#a93226; }
+  .result.show { display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>เพิ่มคะแนนให้ลูกค้า</h1>
+    <p class="muted">สำหรับพนักงานหน้าร้านเท่านั้น</p>
+
+    <label>รหัสพนักงาน</label>
+    <input id="staffKey" type="password" placeholder="STAFF_KEY" />
+
+    <label>เบอร์โทรลูกค้า</label>
+    <input id="phone" type="tel" inputmode="numeric" placeholder="08x-xxx-xxxx" maxlength="10" />
+    <button id="scanBtn" type="button" class="scan">สแกน QR ลูกค้า</button>
+    <div id="reader" class="reader" style="display:none"></div>
+
+    <label>ยอดซื้อ (บาท)</label>
+    <input id="baht" type="number" inputmode="numeric" placeholder="0" />
+
+    <label>เลขที่บิล (ไม่บังคับ)</label>
+    <input id="bill" type="text" placeholder="เช่น A1234" />
+
+    <button id="submit">เพิ่มคะแนน</button>
+    <div id="result" class="result"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  // ⚠️ ใส่ URL ของ Apps Script web app (เดียวกับในหน้า index.html)
+  const GAS_URL = "https://script.google.com/macros/s/AKfycby9BG3LAx3jgYCZg_oei_hooMun4udgMmYqMGc3O4S3iKIbU9VNMCLN-mYUtWRrRp1_/exec";
+
+  const $ = (id) => document.getElementById(id);
+  $('staffKey').value = sessionStorage.getItem('staffKey') || '';
+
+  function show(msg, isErr) {
+    const r = $('result');
+    r.textContent = msg;
+    r.className = 'result show' + (isErr ? ' err' : '');
+  }
+
+  $('submit').addEventListener('click', async () => {
+    const staffKey = $('staffKey').value.trim();
+    const phone = $('phone').value.trim();
+    const baht = $('baht').value.trim();
+    if (!staffKey || !phone || !baht) { show('กรอกข้อมูลให้ครบ', true); return; }
+
+    sessionStorage.setItem('staffKey', staffKey);
+    $('submit').disabled = true;
+    try {
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addPoints', staffKey, phone, baht: Number(baht), bill: $('bill').value.trim() }),
+      });
+      const data = await res.json();
+      if (!data.ok) show(data.error, true);
+      else {
+        const b = data.breakdown || {};
+        let detail = '';
+        if (b.campaigns && b.campaigns.length) detail = '\n(พื้นฐาน ' + b.base + (b.multiplier > 1 ? ' ×' + b.multiplier : '') + (b.bonus ? ' +โบนัส ' + b.bonus : '') + ' · ' + b.campaigns.join(', ') + ')';
+        show(`✅ เพิ่ม ${data.addedPoints} แต้มให้ ${data.member.name} แล้ว (รวม ${data.member.points} แต้ม)` + detail, false);
+        $('phone').value = ''; $('baht').value = ''; $('bill').value = '';
+      }
+    } catch (e) { show('เชื่อมต่อไม่สำเร็จ', true); }
+    $('submit').disabled = false;
+  });
+
+  /* ---- สแกน QR ลูกค้า (ต้องเปิดผ่าน HTTPS และอนุญาตกล้อง) ---- */
+  let qr = null, scanning = false;
+  $('scanBtn').addEventListener('click', async () => {
+    if (scanning) { await stopScan(); return; }
+    if (typeof Html5Qrcode === 'undefined') { show('โหลดตัวสแกนไม่สำเร็จ ลองพิมพ์เบอร์แทน', true); return; }
+    $('reader').style.display = 'block';
+    qr = new Html5Qrcode('reader');
+    scanning = true; $('scanBtn').textContent = 'หยุดสแกน';
+    try {
+      await qr.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, (text) => {
+        const digits = String(text).replace(/\D/g, '');
+        if (digits.length >= 9) { $('phone').value = digits; show('อ่านเบอร์: ' + digits, false); stopScan(); }
+      }, () => {});
+    } catch (e) {
+      show('เปิดกล้องไม่ได้ ลองพิมพ์เบอร์แทน', true);
+      scanning = false; $('scanBtn').textContent = 'สแกน QR ลูกค้า'; $('reader').style.display = 'none';
+    }
+  });
+  async function stopScan() {
+    if (qr && scanning) { try { await qr.stop(); await qr.clear(); } catch (e) {} }
+    scanning = false; $('scanBtn').textContent = 'สแกน QR ลูกค้า'; $('reader').style.display = 'none';
+  }
+</script>
+</body>
+</html>
